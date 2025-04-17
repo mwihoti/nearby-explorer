@@ -36,7 +36,7 @@ export const authOptions: NextAuthOptions = {
             return null
         },
         })
-    ]
+    ],
     pages: {
         signIn: "/login",
 
