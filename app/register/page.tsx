@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast"
 
 
 
-export default function LoginPage() {
+export default function RegisterPage() {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [isLoading, setIsLoading] = useState(false)
