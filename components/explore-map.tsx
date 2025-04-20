@@ -380,15 +380,270 @@ return (
                           <div>
                             <div className="flex items-center gap-1">
                               {getPoiIcon(poi.type)}
+                              <h3 className="font-medium">{poi.name}</h3>
+                            </div>
+                            <p className="text-sm text-muted-foreround line-clamp-2 mt-1">{poi.description}</p>
+                            <div className="flex items-center gap-1 mt-2">
+                              <Star className="h-3 w-3 fill-primary text-preimary" />
+                              <span className="text-xs">{poi.rating}</span>
+                              <span className="text-xs text-muted-foreground ml-2">{poi.distance} km away</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {poi.tags.map((tag, i)=> (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
                             </div>
                           </div>
+                          <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleSavePlace(poi.id)
+                              }}>
+                                <Heart className={`h-4 w-4 ${savedPlaces.includes(poi.id) ? "fill-primary text-primary" : ""}`}/>
+                              </Button>
                         </div>
                       </CardContent>
                     </Card>
+
               ))
             )} 
           </TabsContent>
+          <TabsContent value="filters" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Place Type</label>
+              <Select value={poiType} onValueChange={setPoiType}>
+                <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="Cafe">Cafes</SelectItem>       
+                  <SelectItem value="landmark"> LandMarks</SelectItem>
+                  <SelectItem value="nature"> Nature</SelectItem>
+                </SelectContent>
+                            </Select>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <label className="not-last-of-type:text-sm font-medium">Distance (km)</label>
+               <span className="text-sm text-muted-foreground">{distance[0]} km</span>
+              </div>
+              <Slider value={distance} min={1} max={20} step={1} onValueChange={setDistance} />
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <label className="text-sm font-medium">Minimum Rating</label>
+                <span className="text-sm text-muted-foreground">{minRating} stars</span>
+              </div>
+              <Slider   
+                  value={[minRating]}
+                  min={0}
+                  max={5}
+                  step={0.5}
+                  onValueChange={(value) => setMinRating(value[0])} />
+            </div>
+
+            <Button
+              className="w-full mt-4"
+              variant="outline"
+              onClick={() => {
+                setPoiType("all")
+                setDistance([5])
+                setMinRating(0)
+                setSearchQuery("")
+              }}>
+                Reset filters
+              </Button>
+          </TabsContent>
+
+          <TabsContent value="airports" className="space-y-4 mt-4">
+            <div className="flex justify-between items-center">
+              <h3 className="font-medium">Nearby Airports</h3>
+              <Button variant="outline" size="sm" onClick={() => setShowAirports(!showAirports)}>
+                {showAirports ? "Hide on Map": "Show on Map"}
+              </Button>
+            </div>
+            {mockAirports.map((airport) => (
+              <Card key={airport.id}>
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-1">
+                        <Plane className="h-4 w-4" />
+                        <h3 className="font-medium">{airport.name}</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {airport.code} . {airport.distance} km away
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            <div className="mt-4">
+              <h3 className="font-medium mb-2">Incoming flights</h3>
+              {mockFlights.map((flight) => (
+                <div key={flight.id} className="py-2 border-b last:border-0">
+                  <div className="flex justify-between">
+                    <span className="font-medium">{flight.flightNumber}</span>
+                    <span className={`text-sm ${flight.status === "Delayed" ? "text-destructive" : "text-primary"}`}>
+                      {flight.status}
+                    </span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">From: {flight.origin} </div>
+                    <div className="text-sm text-muted-foreground">ETA: {flight.eta} </div>
+
+                  </div>
+              ))}
+            </div>
+          </TabsContent>
         </Tabs>
+      </div>
+      {/* Map container */}
+      <div className="flex-1 relative map-container">
+        {typeof window !== "undefined" && (
+          <MapContainer 
+            center={[userLocation.lat, userLocation.lng]}
+            zoom={14}
+            style={{ height: "100%", width: "100%"}}
+            whenReady={() => setIsMapReady(true)}
+            ref={mapRef}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <SetViewOnChange coords={userLocation} />
+
+                {/* User location marker */}
+                <Marker position={[userLocation.lat, userLocation.lng]}>
+                  <Popup>
+                    <div className="text-center">
+                      <p className="font-medium">Your Location</p>
+                    </div>
+                  </Popup>
+                </Marker>
+
+                {/* POI markers */}
+                {filteredPOIs.map((poi) => (
+                  <Marker key={poi.id} position={[poi.location.lat, poi.location.lng]}>
+                    <Popup>
+                      <div className="w-64">
+                        <h3 className="font-medium text-lg">{poi.name}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">{poi.description}</p>
+                        <div className="flex items-center gap-1 mt-2">
+                          <Star className="h-3 w-3 fill-primary text-primary" />
+                          <span className="text-sm">{poi.rating}</span>
+                          <span className="text-sm text-muted-foreground ml-2">{poi.distance} km away</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {poi.tags.map((tag, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                        <Button className="w-full mt-3" size="sm" onClick={() => toggleSavePlace(poi.id)}>
+                          {savedPlaces.includes(poi.id) ? "Unsave Place" : "Save Place"}
+                        </Button>
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+                {/* Airport markers */}
+                {showAirports && 
+                mockAirports.map((airport) => (
+                  <Marker key={airport.id} position={[airport.location.lat, airport.location.lng]}>
+                    <Popup>
+                      <div>
+                        <h3 className="font-medium">{airport.name}</h3>
+                        <p className="text-sm text-muted-foreground">{airport.code}</p>
+                        <p className="text-sm text-muted-foreground">{airport.distance} km away</p>
+
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+            </MapContainer>
+        )}
+
+        {/* Selected POI detail panel */}
+        {selectedPOI && (
+          <motion.div
+            initial={{ x: "100%"}}
+            animate={{ x: 0 }}
+            className="absolute top-0 right-0 w-full md:w-96 h-full bg-background border-1 overflow-y-auto">
+              <div className="p-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold">{selectedPOI.name}</h2>
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedPOI(null)}>
+                    <span className="sr-only">Close</span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-4 w-4"
+                    >
+                      <path d="M18 6 6 18"></path>
+                      <path d="m6 6 12 12"></path>
+                    </svg>
+                  </Button>
+                </div>
+                {selectedPOI.image && (
+                  <div className="mb-4 rounded-md overflow-hidden">
+                    <img 
+                      src={selectedPOI.image || "/placeholder.svg"}
+                      alt={selectedPOI.name}
+                      className="w-full h-48 object-cover" />
+
+                    </div>
+                )}
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-medium">Description</h3>
+                    <p className="text-muted-foreground">{selectedPOI.description}</p>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <Star className="h-4 w-4 fill-primary text-primary" />
+                      <span className="font-medium">{selectedPOI.rating}</span>
+                    </div>
+                    <span className="text-sm text-muted-foreground">{selectedPOI.distance} km away</span>
+                  </div>
+
+
+                  <div>
+                    <h3 className="font-medium mb-2">Tags</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedPOI.tags.map((tag, i) => (
+                        <Badge key={i} variant="secondary">{tag}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="pt-4 flex gap-2">
+                    <Button className="flex-1" onClick={() => toggleSavePlace(selectedPOI.id)}>
+                      <Heart className={`h-4 w-4 mr-2 ${savedPlaces.includes(selectedPOI.id) ? "fill-primary-foreground": ""}`}/>
+                      {savedPlaces.includes(selectedPOI.id) ? "Saved" : "Save Place"}
+                    </Button>
+                    <Button variant="ouline" className="flex-1">
+                      Get Directions
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+        )}
       </div>
     </div>
   </div>

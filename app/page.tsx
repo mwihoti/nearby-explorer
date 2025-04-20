@@ -1,6 +1,6 @@
 import Hero from "@/components/hero"
 import { ModeToggle } from "@/components/mode-toggle"
-import { UserNav } from "@/components/user-nav"
+import UserNav  from "@/components/user-nav"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Compass, Map } from "lucide-react"
@@ -86,10 +86,7 @@ export default function Home() {
           </div>
         <div className="rounded-lg border bg-background p-2">
           <Image
-            src="/detailed-map-with-m            fix: Correct Date constructor syntax in homepage footer
-            
-            - Fix syntax error in copyright year display
-            - Replace incorrect new.Date() with proper new Date() constructorarkers.png"
+            src="/detailed-map-with-markers.png"
             width={550}
             height={550}
             alt="Map interface with location markers"
