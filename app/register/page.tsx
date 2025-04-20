@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Compass, Github, Mail, AlertCircle } from "lucide-react"
+import { Compass, Github, Chrome, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
@@ -114,12 +114,14 @@ finally {
                     <p className="text-sm text-muted-foreground">Enter your details below to create your account</p>
                 </div>
 
-                        <Card>
+                        <Card className="space-y-4">
                         <form onSubmit={handleRegister}>
-            <CardHeader>
-              <CardTitle>Sign Up</CardTitle>
+                          <div className="space-y-6 ">
+            <CardHeader className="m-0">
+              <CardTitle className="">Sign Up</CardTitle>
               <CardDescription>Create a new account to get started</CardDescription>
             </CardHeader>
+            </div>
             <CardContent className="space-y-4">
               {Object.keys(errors).length > 0 && (
                 <Alert variant="destructive">
@@ -136,7 +138,7 @@ finally {
                 </Alert>
               )}
 
-              <div className="space-y-2">
+              <div className="space-y-2 mt-4">
                 <Label htmlFor="name">Full Name</Label>
                 <Input
                   id="name"
@@ -198,10 +200,16 @@ finally {
                   <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
                 </div>
               </div>
+              <div className="flex flex-col space-y-3">
               <Button variant="outline" type="button" className="w-full" onClick={() => signIn("github")}>
                 <Github className="mr-2 h-4 w-4" />
                 GitHub
               </Button>
+              <Button variant="outline" type="button" className="w-full" onClick={() => signIn("google")}>
+                <Chrome className="mr-2 h-4 w-4" />
+                Google
+              </Button>
+              </div>
             </CardFooter>
           </form>
                         </Card>
