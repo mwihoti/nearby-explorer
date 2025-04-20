@@ -10,37 +10,71 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Compass, Github, Mail } from "lucide-react"
 import { signIn } from "next-auth/react"
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 
 
 
 export default function LoginPage() {
-    const [email, setEmail] = useState("")
-    const [password, setPassword] = useState("")
-    const [isLoading, setIsLoading] = useState(false)
-    const { toast } = useToast()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const router = useRouter()
+  const { toast } = useToast()
+  const searchParams = useSearchParams()
+  const error = searchParams.get("error")
+  const callbackUrl = searchParams.get("callbackUrl") || "/explore"
 
+  useEffect(() => {
+    if (error) {
+      const errorMessages: Record<string, string> = {
+        OAuthSignin: "Error starting the OAuth sign-in flow.",
+        OAuthCallback: "Error completing the OAuth sign-in flow.",
+        OAuthCreateAccount: "Error creating a user with the OAuth provider.",
+        EmailCreateAccount: "Error creating a user with the email provider.",
+        Callback: "Error during the OAuth callback.",
+        OAuthAccountNotLinked: "This email is already associated with another account.",
+        EmailSignin: "Error sending the email sign-in link.",
+        CredentialsSignin: "The credentials you provided were invalid.",
+        SessionRequired: "You must be signed in to access this page.",
+        Default: "An unknown error occurred during authentication.",
+      }
+      setErrorMessage(errorMessages[error] || errorMessages.Default)
+      toast({
+        title: "Authentication Error",
+        description: errorMessages[error] || errorMessages.Default,
+        variant: "destructive"
+      })
+    }
+  }, [error, toast])
 
     const handleEmailSignIn = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsLoading(true)
+        setErrorMessage(null)
 
-        try {
-            toast({
-                title: "Check your email",
-                description: "We sent you a login link. Be sure to check your spam too.",
-              })
-            } catch (error) {
-              toast({
-                title: "Something went wrong",
-                description: "Your sign in request failed. Please try again.",
-                variant: "destructive",
-              })
-            } finally {
-              setIsLoading(false)
-            
+       try {
+        // First validate fetch api
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({email, password}),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          setErrorMessage(data.error || "Invalid credentials")
+          toast({
+            title: "Authentication failed",
+            description: data.error || "Please check your "
+          })
         }
+       } catch (error) {
+        
+       }
     }
 
     return (
