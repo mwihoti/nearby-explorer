@@ -22,7 +22,7 @@ if (process.env.NODE_ENV === "development") {
         client = new MongoClient(uri, options)
         globalWithMongo._mongoClientPromise = client.connect()
     }
-    clientPromise = globalWithMongo._mongoClientPromise
+    clientPromise = globalWithMongo._mongoClientPromise || Promise.reject(new Error("MongoClient promise is undefined"))
 } else {
     // In production mode
     client = new MongoClient(uri, options)
