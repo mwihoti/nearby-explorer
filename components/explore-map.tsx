@@ -1,652 +1,759 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet"
+import type React from "react"
+
+import { useState, useEffect, useRef, useCallback } from "react"
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet"
+import L from "leaflet"
 import "leaflet/dist/leaflet.css"
-import "leaflet-defaulticon-compatibility"
-import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Slider } from "@/components/ui/slider"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { Compass, Search, MapPin, Coffee, Landmark, Plane, Trees, Star, Shuffle, Heart } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { useMobile } from "@/hooks/use-mobile"
-import dynamic from "next/dynamic"
-import { useSession } from "next-auth/react"
-import Link from "next/link"
+import { Search, Navigation, Loader2, AlertCircle, Plane, X, ArrowLeft } from "lucide-react"
+import { CategorySearch } from "./category-search"
+import { PlaceInfoPanel } from "./place-info-panel"
+import { SearchResults } from "./search-results"
+import { FilterControls } from "./filter-controls"
+import { toast } from "@/hooks/use-toast"
 
-
-// Dynamic import for framer motion
-const motion = dynamic(() => import("framer-motion").then((mod) => mod.motion), {ssr: false})
-
-//Types for POIs and  other daata
-type Lating = {
-    lat: number
-    lng: number
-}
-
-type POI = {
-    id: string
-    name: string
-    location: Lating
-    description: string
-    type: string
-    tags: string[]
-    rating: number
-    distance: number
-    image?: string
-}
-type Airport = {
-    id: string
-    name: string
-    code: string
-    location: Lating
-    distance: number
-}
-type Flight = {
-    id: string
-    flightNumber: string
-    origin: string
-    destination: string
-    eta: string
-    status: string
-}
-// Mock data for POIs
-const mockPOIs: POI[] = [
-    {
-      id: "1",
-      name: "Central Park Cafe",
-      location: { lat: 40.785091, lng: -73.968285 },
-      description: "A cozy cafe with a view of the park",
-      type: "cafe",
-      tags: ["Cozy", "Quiet", "Coffee"],
-      rating: 4.5,
-      distance: 0.8,
-      image: "/bustling-cafe-terrace.png",
-    },
-    {
-      id: "2",
-      name: "Historic Museum",
-      location: { lat: 40.779423, lng: -73.963244 },
-      description: "Learn about the city's rich history",
-      type: "landmark",
-      tags: ["Educational", "Indoor", "Historic"],
-      rating: 4.8,
-      distance: 1.2,
-      image: "/grand-facade-history.png",
-    },
-    {
-      id: "3",
-      name: "Riverside Park",
-      location: { lat: 40.801505, lng: -73.972542 },
-      description: "Beautiful park along the river",
-      type: "nature",
-      tags: ["Outdoor", "Scenic", "Peaceful"],
-      rating: 4.6,
-      distance: 1.5,
-      image: "/tree-lined-riverwalk.png",
-    },
-    {
-      id: "4",
-      name: "Skyline Viewpoint",
-      location: { lat: 40.748817, lng: -73.985428 },
-      description: "Amazing views of the city skyline",
-      type: "landmark",
-      tags: ["Scenic", "Photography", "Romantic"],
-      rating: 4.9,
-      distance: 2.3,
-      image: "/placeholder.svg?height=200&width=300&query=city skyline viewpoint",
-    },
-    {
-      id: "5",
-      name: "Hidden Garden",
-      location: { lat: 40.765136, lng: -73.977618 },
-      description: "A secret garden tucked away in the city",
-      type: "nature",
-      tags: ["Hidden", "Peaceful", "Flowers"],
-      rating: 4.7,
-      distance: 0.9,
-      image: "/placeholder.svg?height=200&width=300&query=hidden garden with flowers",
-    },
-  ]
-  
-  // Mock data for airports
-  const mockAirports: Airport[] = [
-    {
-      id: "1",
-      name: "John F. Kennedy International Airport",
-      code: "JFK",
-      location: { lat: 40.641766, lng: -73.780968 },
-      distance: 19.8,
-    },
-    {
-      id: "2",
-      name: "LaGuardia Airport",
-      code: "LGA",
-      location: { lat: 40.775103, lng: -73.872971 },
-      distance: 8.6,
-    },
-  ]
-  
-  // Mock data for flights
-  const mockFlights: Flight[] = [
-    {
-      id: "1",
-      flightNumber: "AA123",
-      origin: "Los Angeles (LAX)",
-      destination: "New York (JFK)",
-      eta: "15:30",
-      status: "On Time",
-    },
-    {
-      id: "2",
-      flightNumber: "DL456",
-      origin: "Chicago (ORD)",
-      destination: "New York (JFK)",
-      eta: "16:15",
-      status: "Delayed",
-    },
-    {
-      id: "3",
-      flightNumber: "UA789",
-      origin: "Miami (MIA)",
-      destination: "New York (JFK)",
-      eta: "17:00",
-      status: "On Time",
-    },
-  ]
-
-  /// component to recenter map when location changes
-  function SetViewOnChange({ coords}: {coords: Lating}) {
-    const map = useMap()
-    useEffect(() => {
-        map.setView([coords.lat, coords.lng], 14)
-    }, [coords, map])
-    return null
-  }
-  export default function ExploreMap() {
-
-  const [userLocation, setUserLocation] = useState<Lating>({ lat: 40.7128, lng: -74.006}) // Default to NYC
-  const [isLocating, setIsLocating] =useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [distance, setDistance] = useState([5]) // Default 5km radius
-  const [poiType, setPoiType] = useState("all")
-  const [minRating, setMinRating] = useState(0)
-  const [filteredPOIs, setFilteredPOIs] = useState<POI[]>([])
-  const [selectedPOI, setSelectedPOI] = useState<POI | null>(null)
-  const [showAirports, setShowAirports] = useState(false)
-  const [savedPlaces, setSavedPlaces] = useState<string[]>([])
-  const [isMapReady, setIsMapReady] = useState(false)
-  const { toast } = useToast()
-  const isMobile = useMobile
-  const { data: session } = useSession()
-  const mapRef = useRef(null)
-
-  // Get user's location on component mount
-{/*
-  useEffect(() => {
-    locateUser()
-  }, [])*/}
-
-  // Filter POIs based on user selections
-  useEffect(() => {
-    let filtered = mockPOIs
-
-    // Filter by search query
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (poi) => 
-            poi.name.toLowerCase().includes(searchQuery.toLowerCase() || 
-      poi.description.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    poi.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase())))
-      )
-    }
-
-    // Filter by POI type
-    if (poiType !== "all") {
-      filtered = filtered.filter((poi) => poi.type === poiType)
-    }
-
-    // Filter by distance
-    filtered = filtered.filter((poi) => poi.distance <= distance[0])
-
-    // filter ny rating
-
-    filtered = filtered.filter((poi) => poi.rating >= minRating)
-
-    setFilteredPOIs(filtered)
-  }, [searchQuery, poiType, distance, minRating])
-
-  // function to get user's location
-  const locateUser = () => {
-    setIsLoading(true)
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude} = position.coords
-          setUserLocation({ lat: latitude, lng: longitude})
-          setIsLoading(false)
-          toast({
-            title: "Location found",
-            description: "We've found your current location."
-          })
-        },
-        (error) => {
-          console.error("Error getting location:", error)
-          setIsLocating(false)
-          toast({
-            title: "Location error",
-            desription: "Could not get your location. Please enter it manually.",
-            variant: "destructive"
-          })
-
-        }
-      )
-    } else {
-      setIsLoading(false)
-      toast({
-        title: "Geolocation not supported",
-        description: "Your browser doesn't support geolocation.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // function to handle POI selection
-  const handlePOISelect = (poi: POI) => {
-    setSelectedPOI(poi)
-  }
-
-  // function to save/unsave a place
-
-  const toggleSavePlace = (poiId: string) => {
-    if (!session) {
-      toast({
-        title: "Sign in required",
-        description: "Please sign in to save places.",
-        variant: "destructive"
-      })
-      return
-    }
-    if (savedPlaces.includes(poiId)) {
-      setSavedPlaces(savedPlaces.filter((id) => id !== poiId))
-      toast({
-        title: "Place removed",
-        description: "This place has been removed from your saved places.",
-      })
-    } else {
-      setSavedPlaces([...savedPlaces, poiId])
-      toast({
-        title: "Place saved",
-        description: "This place has been added to your saved places."
-      })
-    }
-  }
-// function to get a random POI  suggestion
-const getRandomPOI = () => {
-  if (filteredPOIs.length === 0) return
-
-
-  const randomIndex = Math.floor(Math.random() * filteredPOIs.length)
-  const randomPOI = filteredPOIs[randomIndex]
-
-  setSelectedPOI(randomPOI)
-
-  toast({
-    title: "Explore this place!",
-    description: `We suggest checking out ${randomPOI.name}`
+// Fix for Leaflet icons in Next.js
+if (typeof window !== "undefined") {
+  // @ts-ignore
+  delete L.Icon.Default.prototype._getIconUrl
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png",
+    iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+    shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
   })
 }
 
-// Icon components for POI types
-const getPoiIcon = (type: string) => {
-  switch (type) {
-    case "cafe":
-      return <Coffee className="h-4 w-4" />
-    case "landmark":
-      return <Landmark className="h-4 w-4" />
-    case "nature":
-      return <Trees className="h-4 w-4" />
-    default:
-      return <MapPin className="h-4 w-4" />
-  }
+// Custom icons for different place types
+const createCustomIcon = (color: string) => {
+  return L.divIcon({
+    className: "custom-icon",
+    html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+            <div style="color: white; font-size: 12px; font-weight: bold;"></div>
+          </div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -12],
+  })
 }
 
-return (
-  <div className="flex flex-col h-screen">
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-    <div className="container flex h-14 items-center">
-      <div className="flex items-center gap-2 font-bold">
-        <Compass className="h-5 w-5 text-primary" />
-        <span>NearbyExplorer</span>
-      </div>
-      <div className="flex flex-1 items-center gap-2 md:gap-4 md:px-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search places..."
-            className="pl-8"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            />
-           
-        </div>
-        <Button variant="outline" size="icon" onClick={locateUser} disabled={isLocating}>
-          <MapPin className={`h-4 w-4 ${isLoading ? "animate-pulse" : ""}`} />
-          <span className="sr-only">Find my location</span>
-        </Button>
-      </div>
-      <div className="ml-auto flex items-center gap-2">
-        <Link href="/">
-        <Button variant="ghost" size="sm">Home</Button>
-        </Link>
-        <Button variant="ghost" size="icon" onClick={() => getRandomPOI()}
-        className="text-primary">
-          <Shuffle className="h-4 w-4" />
-          <span className="sr-only">Random place</span>
-        </Button>
-      </div>
-    </div>
-    </header>
+// Icon for user location
+const userLocationIcon = L.divIcon({
+  className: "user-location-icon",
+  html: `<div style="background-color: #3B82F6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`,
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+})
 
-    <div className="flex flex-col md:flex-row h-full">
-      {/* Sidebar for filters and POI list */}
-      <div className="w-full md:w-80 border-r bg-background p-4 overflow-y-auto">
-        <Tabs defaultValue="places">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="places">Places</TabsTrigger>
-            <TabsTrigger value="filters">Filters</TabsTrigger>
-            <TabsTrigger value="airports">Airports</TabsTrigger>
-          </TabsList>
+// Custom icons for different place types
+const placeIcons = {
+  default: createCustomIcon("#6B7280"), // Gray
+  restaurant: createCustomIcon("#EF4444"), // Red
+  hotel: createCustomIcon("#8B5CF6"), // Purple
+  attraction: createCustomIcon("#F59E0B"), // Amber
+  hospital: createCustomIcon("#10B981"), // Green
+  school: createCustomIcon("#3B82F6"), // Blue
+  airport: createCustomIcon("#000000"), // Black
+}
 
-          <TabsContent value="places" className="space-y-4 mt-4">
-            {filteredPOIs.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No places found matching your criteria</p>
-              </div>
-            ) : (
-              filteredPOIs.map((poi) => (
-                <Card 
-                    key={poi.id}
-                    className={`cursor-pointer transition-all ${selectedPOI?.id === poi.id ? "ring-2 ring-primary" : ""}`}>
-                      <CardContent className="p-3">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="flex items-center gap-1">
-                              {getPoiIcon(poi.type)}
-                              <h3 className="font-medium">{poi.name}</h3>
-                            </div>
-                            <p className="text-sm text-muted-foreround line-clamp-2 mt-1">{poi.description}</p>
-                            <div className="flex items-center gap-1 mt-2">
-                              <Star className="h-3 w-3 fill-primary text-preimary" />
-                              <span className="text-xs">{poi.rating}</span>
-                              <span className="text-xs text-muted-foreground ml-2">{poi.distance} km away</span>
-                            </div>
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {poi.tags.map((tag, i)=> (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                          <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                toggleSavePlace(poi.id)
-                              }}>
-                                <Heart className={`h-4 w-4 ${savedPlaces.includes(poi.id) ? "fill-primary text-primary" : ""}`}/>
-                              </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+// Helper function to determine which icon to use
+const getIconForPlace = (place: any) => {
+  const type = place.type?.toLowerCase() || ""
 
-              ))
-            )} 
-          </TabsContent>
-          <TabsContent value="filters" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Place Type</label>
-              <Select value={poiType} onValueChange={setPoiType}>
-                <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="Cafe">Cafes</SelectItem>       
-                  <SelectItem value="landmark"> LandMarks</SelectItem>
-                  <SelectItem value="nature"> Nature</SelectItem>
-                </SelectContent>
-                            </Select>
+  if (type.includes("restaurant") || type.includes("cafe") || type.includes("bar")) {
+    return placeIcons.restaurant
+  } else if (type.includes("hotel") || type.includes("lodging")) {
+    return placeIcons.hotel
+  } else if (type.includes("attraction") || type.includes("tourism") || type.includes("museum")) {
+    return placeIcons.attraction
+  } else if (type.includes("hospital") || type.includes("clinic") || type.includes("doctor")) {
+    return placeIcons.hospital
+  } else if (type.includes("school") || type.includes("university") || type.includes("college")) {
+    return placeIcons.school
+  } else if (type.includes("airport") || type.includes("aerodrome")) {
+    return placeIcons.airport
+  }
+
+  return placeIcons.default
+}
+
+// Component to update map center when user location changes
+function UpdateMapCenter({ center }: { center: [number, number] }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (center && center[0] !== 0 && center[1] !== 0) {
+      map.setView(center, map.getZoom())
+    }
+  }, [center, map])
+
+  return null
+}
+
+// Main ExploreMap component
+export function ExploreMap() {
+  // State for location and map
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
+  const [mapCenter, setMapCenter] = useState<[number, number]>([51.505, -0.09]) // Default to London
+  const [searchQuery, setSearchQuery] = useState("")
+  const [places, setPlaces] = useState<any[]>([])
+  const [filteredPlaces, setFilteredPlaces] = useState<any[]>([])
+  const [selectedPlace, setSelectedPlace] = useState<any | null>(null)
+  const [placeDetails, setPlaceDetails] = useState<any | null>(null)
+  const [airports, setAirports] = useState<any[]>([])
+  const [selectedAirport, setSelectedAirport] = useState<any | null>(null)
+  const [flights, setFlights] = useState<any[]>([])
+  const [loading, setLoading] = useState({
+    location: false,
+    places: false,
+    placeDetails: false,
+    airports: false,
+    flights: false,
+  })
+  const [error, setError] = useState<string | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [showAirports, setShowAirports] = useState(true)
+  const [showSearchResults, setShowSearchResults] = useState(false)
+  const [showPlaceInfo, setShowPlaceInfo] = useState(false)
+  const [activeFilters, setActiveFilters] = useState({
+    rating: "all",
+    hours: "all",
+  })
+
+  const mapRef = useRef<any>(null)
+
+  // Function to get user location from IP
+  const getLocationFromIP = useCallback(async () => {
+    setLoading((prev) => ({ ...prev, location: true }))
+
+    try {
+      const response = await fetch("/api/geolocation")
+      if (!response.ok) {
+        throw new Error("Failed to fetch IP-based location")
+      }
+
+      const data = await response.json()
+
+      if (data.success && data.data) {
+        const { lat, lng } = data.data
+        setUserLocation([lat, lng])
+        setMapCenter([lat, lng])
+
+        // Fetch nearby places based on IP location
+        fetchNearbyPlaces(lat, lng)
+
+        // Also fetch nearby airports
+        if (showAirports) {
+          fetchNearbyAirports(lat, lng)
+        }
+      } else {
+        throw new Error(data.error || "Failed to get location from IP")
+      }
+    } catch (error) {
+      console.error("Error getting location from IP:", error)
+      // Fall back to browser geolocation
+      requestBrowserLocation()
+    } finally {
+      setLoading((prev) => ({ ...prev, location: false }))
+    }
+  }, [showAirports])
+
+  // Function to request location from browser
+  const requestBrowserLocation = useCallback(() => {
+    setLoading((prev) => ({ ...prev, location: true }))
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords
+          setUserLocation([latitude, longitude])
+          setMapCenter([latitude, longitude])
+
+          // Fetch nearby places based on browser location
+          fetchNearbyPlaces(latitude, longitude)
+
+          // Also fetch nearby airports
+          if (showAirports) {
+            fetchNearbyAirports(latitude, longitude)
+          }
+
+          setLoading((prev) => ({ ...prev, location: false }))
+        },
+        (error) => {
+          console.error("Error getting browser location:", error)
+          setError("Could not determine your location. Using default location.")
+          setLoading((prev) => ({ ...prev, location: false }))
+
+          // Use default location
+          const defaultLat = 51.505
+          const defaultLng = -0.09
+
+          // Fetch nearby places based on default location
+          fetchNearbyPlaces(defaultLat, defaultLng)
+
+          // Also fetch nearby airports
+          if (showAirports) {
+            fetchNearbyAirports(defaultLat, defaultLng)
+          }
+        },
+      )
+    } else {
+      setError("Geolocation is not supported by your browser. Using default location.")
+      setLoading((prev) => ({ ...prev, location: false }))
+
+      // Use default location
+      const defaultLat = 51.505
+      const defaultLng = -0.09
+
+      // Fetch nearby places based on default location
+      fetchNearbyPlaces(defaultLat, defaultLng)
+
+      // Also fetch nearby airports
+      if (showAirports) {
+        fetchNearbyAirports(defaultLat, defaultLng)
+      }
+    }
+  }, [showAirports])
+
+  // Function to fetch nearby places
+  const fetchNearbyPlaces = useCallback(async (lat: number, lng: number, category?: string) => {
+    setLoading((prev) => ({ ...prev, places: true }))
+
+    try {
+      const params = new URLSearchParams({
+        lat: lat.toString(),
+        lng: lng.toString(),
+        radius: "2000", // 2km radius
+      })
+
+      if (category) {
+        params.append("category", category)
+      }
+
+      const response = await fetch(`/api/places/nearby?${params}`)
+      if (!response.ok) {
+        throw new Error(`Error fetching nearby places: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        setPlaces(data.data)
+        setFilteredPlaces(data.data)
+      } else {
+        throw new Error(data.error || "Failed to fetch nearby places")
+      }
+    } catch (error) {
+      console.error("Error fetching nearby places:", error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch nearby places. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading((prev) => ({ ...prev, places: false }))
+    }
+  }, [])
+
+  // Function to fetch place details
+  const fetchPlaceDetails = useCallback(async (placeId: string) => {
+    setLoading((prev) => ({ ...prev, placeDetails: true }))
+
+    try {
+      const response = await fetch(`/api/places/details?id=${placeId}`)
+      if (!response.ok) {
+        throw new Error(`Error fetching place details: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        setPlaceDetails(data.data)
+        setShowPlaceInfo(true)
+      } else {
+        throw new Error(data.error || "Failed to fetch place details")
+      }
+    } catch (error) {
+      console.error("Error fetching place details:", error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch place details. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading((prev) => ({ ...prev, placeDetails: false }))
+    }
+  }, [])
+
+  // Function to fetch nearby airports
+  const fetchNearbyAirports = useCallback(async (lat: number, lng: number) => {
+    setLoading((prev) => ({ ...prev, airports: true }))
+
+    try {
+      const response = await fetch(`/api/airports/nearby?lat=${lat}&lng=${lng}`)
+      if (!response.ok) {
+        throw new Error(`Error fetching nearby airports: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        setAirports(data.data)
+      } else {
+        throw new Error(data.error || "Failed to fetch nearby airports")
+      }
+    } catch (error) {
+      console.error("Error fetching nearby airports:", error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch nearby airports. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading((prev) => ({ ...prev, airports: false }))
+    }
+  }, [])
+
+  // Function to fetch flight data for an airport
+  const fetchFlightData = useCallback(async (airportCode: string) => {
+    setLoading((prev) => ({ ...prev, flights: true }))
+
+    try {
+      const response = await fetch(`/api/airports/flights?code=${airportCode}`)
+      if (!response.ok) {
+        throw new Error(`Error fetching flight data: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        setFlights(data.data)
+      } else {
+        throw new Error(data.error || "Failed to fetch flight data")
+      }
+    } catch (error) {
+      console.error("Error fetching flight data:", error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch flight data. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading((prev) => ({ ...prev, flights: false }))
+    }
+  }, [])
+
+  // Handle search submission
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!searchQuery.trim()) return
+
+    // Show search results panel
+    setShowSearchResults(true)
+
+    // For now, we'll just fetch places near the current map center
+    // In a real app, you might want to geocode the search query
+    const [lat, lng] = mapCenter
+    fetchNearbyPlaces(lat, lng, selectedCategory || undefined)
+  }
+
+  // Handle category selection
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category)
+    const [lat, lng] = mapCenter
+    fetchNearbyPlaces(lat, lng, category)
+
+    // Show search results when a category is selected
+    setShowSearchResults(true)
+  }
+
+  // Handle place selection
+  const handlePlaceSelect = (place: any) => {
+    setSelectedPlace(place)
+    setSelectedAirport(null) // Clear any selected airport
+    setFlights([]) // Clear flight data
+
+    if (place.id) {
+      fetchPlaceDetails(place.id)
+    }
+
+    // Center map on selected place
+    if (place.lat && place.lng) {
+      setMapCenter([place.lat, place.lng])
+    }
+  }
+
+  // Handle airport selection
+  const handleAirportSelect = (airport: any) => {
+    setSelectedAirport(airport)
+    setSelectedPlace(null) // Clear any selected place
+    setPlaceDetails(null) // Clear place details
+    setShowPlaceInfo(false)
+
+    if (airport.code) {
+      fetchFlightData(airport.code)
+    }
+
+    // Center map on selected airport
+    if (airport.lat && airport.lng) {
+      setMapCenter([airport.lat, airport.lng])
+    }
+  }
+
+  // Center map on user location
+  const centerOnUser = () => {
+    if (userLocation) {
+      setMapCenter(userLocation)
+    } else {
+      // Try to get location again
+      requestBrowserLocation()
+    }
+  }
+
+  // Handle filter changes
+  const handleFilterChange = (filterType: string, value: string) => {
+    setActiveFilters((prev) => ({
+      ...prev,
+      [filterType]: value,
+    }))
+
+    // Apply filters to places
+    applyFilters(places, { ...activeFilters, [filterType]: value })
+  }
+
+  // Apply filters to places
+  const applyFilters = (placesToFilter: any[], filters: typeof activeFilters) => {
+    let result = [...placesToFilter]
+
+    // Apply rating filter
+    if (filters.rating !== "all") {
+      const minRating = Number.parseFloat(filters.rating.replace("+", ""))
+      result = result.filter((place) => {
+        const rating = place.tags?.rating ? Number.parseFloat(place.tags.rating) : Math.random() * 2 + 3
+        return rating >= minRating
+      })
+    }
+
+    // Apply hours filter
+    if (filters.hours !== "all") {
+      if (filters.hours === "open_now") {
+        result = result.filter((place) => place.tags?.opening_hours && place.tags.opening_hours.includes("open"))
+      } else if (filters.hours === "24_hours") {
+        result = result.filter((place) => place.tags?.opening_hours && place.tags.opening_hours.includes("24/7"))
+      }
+    }
+
+    setFilteredPlaces(result)
+  }
+
+  // Initialize: Get user location on component mount
+  useEffect(() => {
+    getLocationFromIP()
+  }, [getLocationFromIP])
+
+  // Apply filters when places or filters change
+  useEffect(() => {
+    applyFilters(places, activeFilters)
+  }, [places, activeFilters])
+
+  return (
+    <Card className="w-full max-w-4xl mx-auto overflow-hidden">
+      <CardContent className="p-0">
+        <div className="grid grid-cols-1 md:grid-cols-3 h-[600px]">
+          {/* Left panel (1/3 on medium+ screens) */}
+          <div className="p-0 border-r overflow-hidden flex flex-col">
+            {/* Search bar */}
+            <div className="p-2 border-b">
+              <form onSubmit={handleSearch} className="relative">
+                {showSearchResults && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute left-1 top-1/2 transform -translate-y-1/2 z-10"
+                    onClick={() => {
+                      setShowSearchResults(false)
+                      setShowPlaceInfo(false)
+                    }}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                )}
+                <Input
+                  placeholder="Search places..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={showSearchResults ? "pl-10" : ""}
+                />
+                <Button type="submit" size="icon" className="absolute right-1 top-1/2 transform -translate-y-1/2">
+                  <Search className="h-4 w-4" />
+                </Button>
+              </form>
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <label className="not-last-of-type:text-sm font-medium">Distance (km)</label>
-               <span className="text-sm text-muted-foreground">{distance[0]} km</span>
-              </div>
-              <Slider value={distance} min={1} max={20} step={1} onValueChange={setDistance} />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <label className="text-sm font-medium">Minimum Rating</label>
-                <span className="text-sm text-muted-foreground">{minRating} stars</span>
-              </div>
-              <Slider   
-                  value={[minRating]}
-                  min={0}
-                  max={5}
-                  step={0.5}
-                  onValueChange={(value) => setMinRating(value[0])} />
-            </div>
 
-            <Button
-              className="w-full mt-4"
-              variant="outline"
-              onClick={() => {
-                setPoiType("all")
-                setDistance([5])
-                setMinRating(0)
-                setSearchQuery("")
-              }}>
-                Reset filters
-              </Button>
-          </TabsContent>
+            {/* Content area */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Show place info panel */}
+              {showPlaceInfo && placeDetails && (
+                <PlaceInfoPanel
+                  place={placeDetails}
+                  onClose={() => {
+                    setShowPlaceInfo(false)
+                    setSelectedPlace(null)
+                    setPlaceDetails(null)
+                  }}
+                  onGetDirections={() => {
+                    // In a real app, you would implement directions here
+                    toast({
+                      title: "Directions",
+                      description: "Directions functionality would be implemented here.",
+                    })
+                  }}
+                />
+              )}
 
-          <TabsContent value="airports" className="space-y-4 mt-4">
-            <div className="flex justify-between items-center">
-              <h3 className="font-medium">Nearby Airports</h3>
-              <Button variant="outline" size="sm" onClick={() => setShowAirports(!showAirports)}>
-                {showAirports ? "Hide on Map": "Show on Map"}
-              </Button>
-            </div>
-            {mockAirports.map((airport) => (
-              <Card key={airport.id}>
-                <CardContent className="p-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-1">
-                        <Plane className="h-4 w-4" />
-                        <h3 className="font-medium">{airport.name}</h3>
+              {/* Show search results */}
+              {showSearchResults && !showPlaceInfo && (
+                <>
+                  <div className="sticky top-0 bg-white z-10">
+                    <div className="p-2 border-b">
+                      <h2 className="font-medium">Results</h2>
+                    </div>
+
+                    {/* Filters */}
+                    <FilterControls onFilterChange={handleFilterChange} activeFilters={activeFilters} />
+                  </div>
+
+                  <SearchResults
+                    places={filteredPlaces}
+                    loading={loading.places}
+                    onPlaceSelect={handlePlaceSelect}
+                    selectedPlace={selectedPlace}
+                  />
+                </>
+              )}
+
+              {/* Show default view with categories */}
+              {!showSearchResults && !showPlaceInfo && (
+                <div className="p-4">
+                  {/* Category filter */}
+                  <CategorySearch onCategorySelect={handleCategorySelect} selectedCategory={selectedCategory} />
+
+                  {/* Airport toggle */}
+                  <div className="flex items-center space-x-2 my-4">
+                    <Button
+                      variant={showAirports ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setShowAirports(!showAirports)
+                        if (!showAirports && userLocation) {
+                          fetchNearbyAirports(userLocation[0], userLocation[1])
+                        }
+                      }}
+                      className="flex items-center space-x-1"
+                    >
+                      <Plane className="h-4 w-4" />
+                      <span>{showAirports ? "Hide Airports" : "Show Airports"}</span>
+                    </Button>
+                  </div>
+
+                  {/* Selected airport info */}
+                  {!loading.flights && selectedAirport && (
+                    <div className="mt-4 border rounded-lg p-3 bg-white">
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-lg font-bold">{selectedAirport.name}</h3>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedAirport(null)
+                            setFlights([])
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {airport.code} . {airport.distance} km away
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            <div className="mt-4">
-              <h3 className="font-medium mb-2">Incoming flights</h3>
-              {mockFlights.map((flight) => (
-                <div key={flight.id} className="py-2 border-b last:border-0">
-                  <div className="flex justify-between">
-                    <span className="font-medium">{flight.flightNumber}</span>
-                    <span className={`text-sm ${flight.status === "Delayed" ? "text-destructive" : "text-primary"}`}>
-                      {flight.status}
-                    </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">From: {flight.origin} </div>
-                    <div className="text-sm text-muted-foreground">ETA: {flight.eta} </div>
 
-                  </div>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-      {/* Map container */}
-      <div className="flex-1 relative map-container">
-        {typeof window !== "undefined" && (
-          <MapContainer 
-            center={[userLocation.lat, userLocation.lng]}
-            zoom={14}
-            style={{ height: "100%", width: "100%"}}
-            whenReady={() => setIsMapReady(true)}
-            ref={mapRef}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <SetViewOnChange coords={userLocation} />
-
-                {/* User location marker */}
-                <Marker position={[userLocation.lat, userLocation.lng]}>
-                  <Popup>
-                    <div className="text-center">
-                      <p className="font-medium">Your Location</p>
-                    </div>
-                  </Popup>
-                </Marker>
-
-                {/* POI markers */}
-                {filteredPOIs.map((poi) => (
-                  <Marker key={poi.id} position={[poi.location.lat, poi.location.lng]}>
-                    <Popup>
-                      <div className="w-64">
-                        <h3 className="font-medium text-lg">{poi.name}</h3>
-                        <p className="text-sm text-muted-foreground mt-1">{poi.description}</p>
-                        <div className="flex items-center gap-1 mt-2">
-                          <Star className="h-3 w-3 fill-primary text-primary" />
-                          <span className="text-sm">{poi.rating}</span>
-                          <span className="text-sm text-muted-foreground ml-2">{poi.distance} km away</span>
+                      {selectedAirport.code && (
+                        <div className="bg-gray-100 p-2 rounded mb-2">
+                          <p className="text-sm font-medium">IATA Code: {selectedAirport.code}</p>
                         </div>
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {poi.tags.map((tag, i) => (
-                            <Badge key={i} variant="outline" className="text-xs">
-                              {tag}
-                            </Badge>
+                      )}
+
+                      <h4 className="font-medium mt-4 mb-2">Departures</h4>
+
+                      {loading.flights ? (
+                        <div className="flex justify-center my-4">
+                          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                        </div>
+                      ) : flights.length > 0 ? (
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                          {flights.map((flight) => (
+                            <div key={flight.id} className="border rounded p-2 bg-white">
+                              <div className="flex justify-between items-center">
+                                <p className="font-bold">{flight.flightNumber}</p>
+                                <span
+                                  className={`text-xs px-2 py-1 rounded ${
+                                    flight.status === "On Time"
+                                      ? "bg-green-100 text-green-800"
+                                      : flight.status === "Delayed"
+                                        ? "bg-red-100 text-red-800"
+                                        : flight.status === "Boarding"
+                                          ? "bg-blue-100 text-blue-800"
+                                          : "bg-gray-100 text-gray-800"
+                                  }`}
+                                >
+                                  {flight.status}
+                                </span>
+                              </div>
+                              <p className="text-sm">
+                                <span className="font-medium">To:</span> {flight.destinationCity} ({flight.destination})
+                              </p>
+                              <p className="text-sm">
+                                <span className="font-medium">Departure:</span>{" "}
+                                {new Date(flight.departureTime).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                              <p className="text-xs text-gray-500">{flight.airline}</p>
+                            </div>
                           ))}
                         </div>
-                        <Button className="w-full mt-3" size="sm" onClick={() => toggleSavePlace(poi.id)}>
-                          {savedPlaces.includes(poi.id) ? "Unsave Place" : "Save Place"}
+                      ) : (
+                        <p className="text-sm text-gray-500">No flight information available.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Loading state */}
+                  {loading.location && (
+                    <div className="flex justify-center items-center space-x-2 mt-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                      <p className="text-sm text-gray-500">Determining your location...</p>
+                    </div>
+                  )}
+
+                  {/* Error state */}
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-md p-3 mt-4">
+                      <div className="flex items-center space-x-2">
+                        <AlertCircle className="h-5 w-5 text-red-500" />
+                        <p className="text-sm text-red-600">{error}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Map (2/3 on medium+ screens) */}
+          <div className="col-span-2 relative">
+            {typeof window !== "undefined" && (
+              <MapContainer center={mapCenter} zoom={13} style={{ height: "100%", width: "100%" }} ref={mapRef}>
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                />
+
+                {/* User location marker */}
+                {userLocation && (
+                  <>
+                    <Marker position={userLocation} icon={userLocationIcon}>
+                      <Popup>
+                        <div className="text-center">
+                          <p className="font-medium">Your Location</p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                    <Circle
+                      center={userLocation}
+                      radius={100}
+                      pathOptions={{ color: "#3B82F6", fillColor: "#93C5FD", weight: 1 }}
+                    />
+                  </>
+                )}
+
+                {/* Place markers */}
+                {places.map((place) => (
+                  <Marker
+                    key={place.id}
+                    position={[place.lat, place.lng]}
+                    icon={getIconForPlace(place)}
+                    eventHandlers={{
+                      click: () => handlePlaceSelect(place),
+                    }}
+                  >
+                    <Popup>
+                      <div>
+                        <h3 className="font-bold">{place.name}</h3>
+                        <p className="text-xs">{place.type}</p>
+                        {place.address && (
+                          <p className="text-xs mt-1">{Object.values(place.address).filter(Boolean).join(", ")}</p>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-2 w-full"
+                          onClick={() => handlePlaceSelect(place)}
+                        >
+                          View Details
                         </Button>
                       </div>
                     </Popup>
                   </Marker>
                 ))}
+
                 {/* Airport markers */}
-                {showAirports && 
-                mockAirports.map((airport) => (
-                  <Marker key={airport.id} position={[airport.location.lat, airport.location.lng]}>
-                    <Popup>
-                      <div>
-                        <h3 className="font-medium">{airport.name}</h3>
-                        <p className="text-sm text-muted-foreground">{airport.code}</p>
-                        <p className="text-sm text-muted-foreground">{airport.distance} km away</p>
-
-                      </div>
-                    </Popup>
-                  </Marker>
-                ))}
-            </MapContainer>
-        )}
-
-        {/* Selected POI detail panel */}
-        {selectedPOI && (
-          <motion.div
-            initial={{ x: "100%"}}
-            animate={{ x: 0 }}
-            className="absolute top-0 right-0 w-full md:w-96 h-full bg-background border-1 overflow-y-auto">
-              <div className="p-4">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-bold">{selectedPOI.name}</h2>
-                  <Button variant="ghost" size="icon" onClick={() => setSelectedPOI(null)}>
-                    <span className="sr-only">Close</span>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-4 w-4"
+                {showAirports &&
+                  airports.map((airport) => (
+                    <Marker
+                      key={airport.id}
+                      position={[airport.lat, airport.lng]}
+                      icon={placeIcons.airport}
+                      eventHandlers={{
+                        click: () => handleAirportSelect(airport),
+                      }}
                     >
-                      <path d="M18 6 6 18"></path>
-                      <path d="m6 6 12 12"></path>
-                    </svg>
-                  </Button>
-                </div>
-                {selectedPOI.image && (
-                  <div className="mb-4 rounded-md overflow-hidden">
-                    <img 
-                      src={selectedPOI.image || "/placeholder.svg"}
-                      alt={selectedPOI.name}
-                      className="w-full h-48 object-cover" />
+                      <Popup>
+                        <div>
+                          <h3 className="font-bold">{airport.name}</h3>
+                          {airport.code && <p className="text-xs">{airport.code}</p>}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="mt-2 w-full"
+                            onClick={() => handleAirportSelect(airport)}
+                          >
+                            View Flight Info
+                          </Button>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
 
-                    </div>
-                )}
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-medium">Description</h3>
-                    <p className="text-muted-foreground">{selectedPOI.description}</p>
-                  </div>
+                <UpdateMapCenter center={mapCenter} />
+              </MapContainer>
+            )}
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-primary text-primary" />
-                      <span className="font-medium">{selectedPOI.rating}</span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">{selectedPOI.distance} km away</span>
-                  </div>
-
-
-                  <div>
-                    <h3 className="font-medium mb-2">Tags</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedPOI.tags.map((tag, i) => (
-                        <Badge key={i} variant="secondary">{tag}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="pt-4 flex gap-2">
-                    <Button className="flex-1" onClick={() => toggleSavePlace(selectedPOI.id)}>
-                      <Heart className={`h-4 w-4 mr-2 ${savedPlaces.includes(selectedPOI.id) ? "fill-primary-foreground": ""}`}/>
-                      {savedPlaces.includes(selectedPOI.id) ? "Saved" : "Save Place"}
-                    </Button>
-                    <Button variant="ouline" className="flex-1">
-                      Get Directions
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-        )}
-      </div>
-    </div>
-  </div>
-)
-
+            {/* Map controls */}
+            <div className="absolute bottom-4 right-4 z-[1000] flex flex-col space-y-2">
+              <Button
+                size="icon"
+                onClick={centerOnUser}
+                variant="secondary"
+                className="bg-white shadow-md"
+                disabled={!userLocation || loading.location}
+              >
+                {loading.location ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
 }

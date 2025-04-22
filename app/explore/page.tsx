@@ -1,6 +1,7 @@
-import ExploreMap from "@/components/explore-map"
+import {ExploreMap} from "@/components/explore-map"
 import { Suspense } from "react"
 import ExploreLoading from "./loading"
+ 
 
 export default function ExplorePage() {
   return (
