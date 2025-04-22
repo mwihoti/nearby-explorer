@@ -80,7 +80,7 @@ export default function SavedPlacesPage() {
                 <h1 className="text-3xl font-bold">Saved places</h1>
                 <Link href="/explore">
                 <Button>Explore More places</Button>
-                </Link>yet
+                </Link>
             </div>
 
             {savedPlaces.length === 0 ? (

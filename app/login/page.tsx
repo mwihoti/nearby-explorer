@@ -7,12 +7,14 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { signIn } from "next-auth/react"
 import { Compass, Github, AlertCircle } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+//import { useToast } from "@/hooks/use-toast"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { toast } from "sonner";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
@@ -23,7 +25,6 @@ export default function LoginPage() {
   const [oauthLoading, setOauthLoading] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const router = useRouter()
-  const { toast } = useToast()
   const searchParams = useSearchParams()
   const error = searchParams.get("error")
   const callbackUrl = searchParams.get("callbackUrl") || "/explore"
@@ -45,13 +46,9 @@ export default function LoginPage() {
 
       setErrorMessage(errorMessages[error] || errorMessages.Default)
 
-      toast({
-        title: "Authentication Error",
-        description: errorMessages[error] || errorMessages.Default,
-        variant: "destructive",
-      })
+      
     }
-  }, [error, toast])
+  }, [error])
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -99,7 +96,7 @@ export default function LoginPage() {
           title: "Success",
           description: "You have been signed in.",
         })
-        router.push(callbackUrl)
+  window.location.href = callbackUrl || "/explore"
       }
     } catch (error) {
       setErrorMessage("An unexpected error occurred. Please try again.")
@@ -134,13 +131,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="container flex h-screen w-screen flex-col items-center justify-center">
+    <div className="container flex h-screen w-screen flex-col items-center mx-0 justify-center">
       <Link href="/" className="absolute left-4 top-4 md:left-8 md:top-8 flex items-center gap-2">
         <Compass className="h-6 w-6 text-primary" />
         <span className="font-bold">NearbyExplorer</span>
       </Link>
 
-      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+      <div className="mx-auto flex w-full flex-col justify-center items-center space-y-6 sm:w-[350px]">
         <div className="flex flex-col space-y-2 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
           <p className="text-sm text-muted-foreground">Sign in to your account to continue</p>

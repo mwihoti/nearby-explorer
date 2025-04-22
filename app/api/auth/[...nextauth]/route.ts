@@ -8,9 +8,8 @@ import { compare } from "bcryptjs"
 import dbConnect from "@/lib/mongoose"
 import User from "@/models/User"
 
-
 export const authOptions = {
-    adpter: MongoDBAdapter(clientPromise),
+    adapter: MongoDBAdapter(clientPromise),
     providers: [
         GithubProvider({
             clientId: process.env.GITHUB_ID || "",
@@ -27,58 +26,85 @@ export const authOptions = {
                 password: {label: "Password", type: "password"},
             },
             async authorize(credentials) {
-                // This is where you would normally validate credentials against your database 
-                // test return demo user
                 if (!credentials?.email || !credentials?.password) {
-                
-            return null}
-
-            await dbConnect()
-
-            try {
-                // find the user in the database
-                const user = await User.findOne({email: credentials.email.toLowerCase() })
-
-                // if user doesn't exist
-                if (!user || !user.password) {
-                    return null
-                }
-                // verify password
-                const passwordValid = await compare(credentials.password, user.password)
-            if (!passwordValid) {
                     return null
                 }
 
-                // Return user data
-                return {
-                    id: user.id.toString(),
-                    name: user.name,
-                    email: user.email,
-                    image: user.image
-                }
+                await dbConnect()
 
-            } catch (error) {
-                console.error("Error in authorize:", error)
-                return null
-            }
-        },
+                try {
+                    // find the user in the database
+                    const user = await User.findOne({email: credentials.email.toLowerCase() })
+
+                    // if user doesn't exist
+                    if (!user || !user.password) {
+                        return null
+                    }
+                    // verify password
+                    const passwordValid = await compare(credentials.password, user.password)
+                    if (!passwordValid) {
+                        return null
+                    }
+
+                    // Return user data
+                    return {
+                        id: user.id.toString(),
+                        name: user.name,
+                        email: user.email,
+                        image: user.image
+                    }
+
+                } catch (error) {
+                    console.error("Error in authorize:", error)
+                    return null
+                }
+            },
         })
     ],
     pages: {
         signIn: "/login",
-
+        error: "/login", // Add this line to ensure errors go to login page
     },
     session: {
         strategy: "jwt",
         maxAge: 7 * 24 * 60 * 60 // 7days
     },
     callbacks: {
-        async session({ session, token }) {
-            if (token && session.user) {
-                session.user.id = token.sub as string
+        // Add this callback to allow linking OAuth accounts with existing credentials
+        async signIn({ user, account, profile }) {
+            // Allow all email+password sign-ins
+            if (account.provider === "credentials") {
+                return true
             }
-            return session
-        }
+            
+            // For OAuth providers, check if a user with this email already exists
+            const existingUser = await User.findOne({ email: user.email.toLowerCase() })
+            
+            // If there's an existing user, we'll update that user to link the OAuth account
+            if (existingUser) {
+                // Update the user with OAuth profile information
+                existingUser.name = user.name || existingUser.name
+                existingUser.image = user.image || existingUser.image
+                
+                // Save the updated user
+                await existingUser.save()
+                
+                // We need to customize the user object sent back to NextAuth
+                user.id = existingUser.id.toString()
+                
+                return true
+            }
+            
+            return true
+        },
+        
+        async redirect({ url, baseUrl }) {
+            // Allows relative callback URLs
+            if (url.startsWith("/")) return `${baseUrl}${url}`
+            // Allows callback URLs on the same origin
+            else if (new URL(url).origin === baseUrl) return url
+            return baseUrl
+        },
     },
     secret: process.env.NEXTAUTH_SECRET,
 }

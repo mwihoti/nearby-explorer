@@ -919,7 +919,7 @@ export function ExploreMap({ sharedPlaceId }: ExploreMapProps) {
   }, [places, activeFilters])
 
   return (
-    <Card className="w-full max-w-5xl mx-auto overflow-hidden">
+    <Card className="w-full mt-16 max-w-5xl mx-auto flex justify-center items-center overflow-hidden">
       <CardContent className="p-0">
         <div className="grid grid-cols-1 md:grid-cols-3 h-[700px]">
           {/* Left panel (1/3 on medium+ screens) */}

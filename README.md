@@ -1,41 +1,104 @@
+# Nearby Explorer - Location Discovery and Sharing App
 
-# Nearby-Explorer
+## Overview
 
+Nearby Explorer is a web application that helps users discover and share interesting places around them. Using OpenStreetMap data and modern web technologies, it provides an interactive map interface where users can explore their surroundings, find points of interest, and share locations with others through unique, shareable links.
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Features
 
-## Getting Started
+- **Location-Based Discovery**: Find restaurants, hotels, attractions, and more near your current location
+- **Advanced Sharing Options**: Share places via QR codes, direct links, or popular map services
+- **Marker Clustering**: Efficiently display large numbers of locations with automatic clustering
+- **Category Filtering**: Filter places by type (restaurants, hotels, attractions, etc.)
+- **Directions**: Get distance and time estimates between your location and points of interest
+- **Saved Places**: Save your favorite locations for quick access later
+- **Mobile Responsive**: Works seamlessly on both desktop and mobile devices
 
-First, run the development server:
+## Demo
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+[Watch the demo video](https://youtu.be/your-demo-video-link)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Installation and Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Prerequisites
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Node.js (v18 or higher)
+- MongoDB database
+- OpenCage API key (for geocoding)
 
-## Learn More
+### Environment Variables
 
-To learn more about Next.js, take a look at the following resources:
+Create a `.env.local` file in the root directory with the following variables:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+\`\`\`
+MONGODB_URI=your_mongodb_connection_string
+OPENCAGE_API_KEY=your_opencage_api_key
+NEXT_PUBLIC_APP_URL=http://localhost:3000 
+\`\`\`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Installation Steps
 
-## Deploy on Vercel
+1. Clone the repository:
+   \`\`\`bash
+   git clone https://github.com/mwihoti/nearby-explorer.git
+   cd nearby-explorer
+   \`\`\`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2. Install dependencies:
+   \`\`\`bash
+   npm install
+   \`\`\`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+3. Run the development server:
+   \`\`\`bash
+   npm run dev
+   \`\`\`
 
+4. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
+
+### Building for Production
+
+\`\`\`bash
+npm run build
+npm start
+\`\`\`
+
+## How It Works
+
+Nearby Explorer uses a combination of modern web technologies to provide a seamless location discovery experience:
+
+1. **Location Detection**: The app uses browser geolocation or IP-based location to determine your position.
+
+2. **Data Sources**: Places are fetched from OpenStreetMap's Overpass API, providing rich, community-maintained data.
+
+3. **Interactive Map**: Built with React Leaflet, the map interface allows for intuitive exploration.
+
+4. **Sharing System**: The app generates unique URLs for each location that can be shared via:
+   - Direct links
+   - QR codes (for easy mobile scanning)
+   - Integration with Google Maps and OpenStreetMap
+
+5. **Offline Support**: Local caching of recently viewed places allows for some offline functionality.
+
+## Why Use Nearby Explorer?
+
+Unlike mainstream map applications, Nearby Explorer focuses on discovery and sharing. The app is designed to help you find interesting places around you and share them easily with friends and family. The integration with multiple map services gives users flexibility in how they view and navigate to shared locations.
+
+The marker clustering system makes it easy to explore dense urban areas without overwhelming the map interface, and the category filtering helps you find exactly what you're looking for.
+
+## Technologies Used
+
+- Next.js (React framework)
+- MongoDB (database)
+- Leaflet (mapping library)
+- OpenStreetMap & Overpass API (location data)
+- OpenCage (geocoding)
+- Tailwind CSS & shadcn/ui (styling)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contact
+
+Discord: danmwi
