@@ -16,7 +16,7 @@ Nearby Explorer is a web application that helps users discover and share interes
 
 ## Demo
 
-[Watch the demo video](https://youtu.be/your-demo-video-link)
+[Watch the demo video](https://www.youtube.com/watch?v=kHsWO4yXHTM&ab_channel=Mwihoti8Dan)
 
 ## Installation and Setup
 
@@ -30,38 +30,38 @@ Nearby Explorer is a web application that helps users discover and share interes
 
 Create a `.env.local` file in the root directory with the following variables:
 
-\`\`\`
+```
 MONGODB_URI=your_mongodb_connection_string
 OPENCAGE_API_KEY=your_opencage_api_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000 
-\`\`\`
+```
 
 ### Installation Steps
 
 1. Clone the repository:
-   \`\`\`bash
+   ```bash
    git clone https://github.com/mwihoti/nearby-explorer.git
    cd nearby-explorer
-   \`\`\`
+   ```
 
 2. Install dependencies:
-   \`\`\`bash
+   ```bash
    npm install
-   \`\`\`
+   ```
 
 3. Run the development server:
-   \`\`\`bash
+   ```bash
    npm run dev
-   \`\`\`
+   ```
 
 4. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
 ### Building for Production
 
-\`\`\`bash
+```bash
 npm run build
 npm start
-\`\`\`
+```
 
 ## How It Works
 
