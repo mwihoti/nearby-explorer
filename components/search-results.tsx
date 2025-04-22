@@ -2,6 +2,8 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Star, Clock, MapPin, Navigation, Share2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { getPlaceTypeFallbackImage, getProxiedImageUrl } from "@/lib/image-utils"
+import { useState } from "react"
 
 interface SearchResultsProps {
   places: any[]
@@ -22,6 +24,9 @@ export function SearchResults({
   onGetDirections,
   onSharePlace,
 }: SearchResultsProps) {
+  // Track image loading errors
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({})
+
   // Format rating stars
   const renderStars = (rating: number) => {
     return (
@@ -92,6 +97,56 @@ export function SearchResults({
     return deg * (Math.PI / 180)
   }
 
+  // Get the best image for a place
+  const getPlaceImage = (place: any) => {
+    // If we've already had an error for this place, use the fallback
+    if (imageErrors[place.id]) {
+      return getPlaceTypeFallbackImage(place)
+    }
+
+    // Check if it's a hotel and use hotel-specific images
+    if (
+      (place.name && place.name.toLowerCase().includes("hotel")) ||
+      (place.name && place.name.toLowerCase().includes("palace")) ||
+      place.tags?.tourism === "hotel" ||
+      place.extratags?.tourism === "hotel"
+    ) {
+      // For Decale Palace Hotel specifically
+      if (place.name && place.name.toLowerCase().includes("decale palace")) {
+        return getProxiedImageUrl(
+          "https://cf.bstatic.com/xdata/images/hotel/max1024x768/327328051.jpg?k=a4b6a1a9a8e638a292b9f659b2ebb3a30b533c77a5d3b0a8d2c5b0c7b7c3f0b&o=&hp=1",
+        )
+      }
+
+      return getProxiedImageUrl(
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8aG90ZWx8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60",
+      )
+    }
+
+    // For restaurants
+    if (place.tags?.amenity === "restaurant" || place.type?.includes("restaurant")) {
+      return getProxiedImageUrl(
+        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8cmVzdGF1cmFudHxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60",
+      )
+    }
+
+    // Use the place's image if available
+    if (place.tags?.image) {
+      return getProxiedImageUrl(place.tags.image)
+    }
+
+    // Otherwise use a fallback based on type
+    return getPlaceTypeFallbackImage(place)
+  }
+
+  // Handle image error
+  const handleImageError = (placeId: string) => {
+    setImageErrors((prev) => ({
+      ...prev,
+      [placeId]: true,
+    }))
+  }
+
   if (loading) {
     return (
       <div className="space-y-4 p-2">
@@ -147,9 +202,10 @@ export function SearchResults({
               {/* Place image */}
               <div className="h-20 w-20 bg-gray-200 rounded overflow-hidden shrink-0">
                 <img
-                  src={place.tags?.image || `/placeholder.svg?height=80&width=80&query=${formatType(place)}`}
+                  src={getPlaceImage(place) || "/placeholder.svg"}
                   alt={place.name || "Unnamed Place"}
                   className="h-full w-full object-cover"
+                  onError={() => handleImageError(place.id)}
                 />
               </div>
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -18,7 +18,17 @@ import {
   Building,
   Route,
   Loader2,
+  ImageIcon,
+  ArrowLeft,
+  ArrowRight,
 } from "lucide-react"
+import {
+  getOSMStaticMapUrl,
+  getPlaceTypeFallbackImage,
+  getProxiedImageUrl,
+  searchLocationImages,
+  getHotelImages,
+} from "@/lib/image-utils"
 
 interface PlaceInfoPanelProps {
   place: any
@@ -46,6 +56,85 @@ export function PlaceInfoPanel({
   routeInfo,
 }: PlaceInfoPanelProps) {
   const [isSaved, setIsSaved] = useState(false)
+  const [placeImages, setPlaceImages] = useState<string[]>([])
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [isLoadingImage, setIsLoadingImage] = useState(true)
+  const [imageError, setImageError] = useState(false)
+  const [showMap, setShowMap] = useState(false)
+
+  // Load the best available images for this place
+  useEffect(() => {
+    if (place) {
+      setIsLoadingImage(true)
+      setImageError(false)
+      setPlaceImages([])
+      setCurrentImageIndex(0)
+
+      const loadImages = async () => {
+        try {
+          // First, try to get an image from place tags
+          const tagImage = place.tags?.image || place.extratags?.image
+          const images: string[] = []
+
+          // Check if it's a hotel
+          const isHotel =
+            (place.name && place.name.toLowerCase().includes("hotel")) ||
+            (place.name && place.name.toLowerCase().includes("palace")) ||
+            place.tags?.tourism === "hotel" ||
+            place.extratags?.tourism === "hotel"
+
+          if (isHotel) {
+            // Get hotel-specific images
+            const hotelImages = await getHotelImages(place.name || "")
+            if (hotelImages.length > 0) {
+              images.push(...hotelImages)
+            }
+          }
+
+          // Try to search for images by name
+          if (place.name) {
+            const nameImages = await searchLocationImages(place.name, place.lat, place.lon || place.lng)
+            if (nameImages.length > 0) {
+              // Add unique images only
+              nameImages.forEach((img) => {
+                if (!images.includes(img)) {
+                  images.push(img)
+                }
+              })
+            }
+          }
+
+          // Add tag image if it exists and isn't already included
+          if (tagImage && !images.includes(tagImage)) {
+            images.unshift(tagImage) // Add to the beginning
+          }
+
+          // Add OSM map as the last option
+          const mapImage = getOSMStaticMapUrl(place.lat, place.lon || place.lng)
+          if (!images.includes(mapImage)) {
+            images.push(mapImage)
+          }
+
+          // If we still have no images, use a fallback
+          if (images.length === 0) {
+            images.push(getPlaceTypeFallbackImage(place))
+          }
+
+          // Update state with all found images
+          setPlaceImages(images.map((img) => getProxiedImageUrl(img)))
+          setIsLoadingImage(false)
+        } catch (error) {
+          console.error("Error loading place images:", error)
+          setImageError(true)
+          setIsLoadingImage(false)
+          // Set fallback image
+          setPlaceImages([getPlaceTypeFallbackImage(place)])
+        }
+      }
+
+      loadImages()
+    }
+  }, [place])
 
   // Format address components
   const formatAddress = () => {
@@ -149,6 +238,36 @@ export function PlaceInfoPanel({
     return deg * (Math.PI / 180)
   }
 
+  // Navigate to the next image
+  const nextImage = () => {
+    if (placeImages.length > 1) {
+      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % placeImages.length)
+    }
+  }
+
+  // Navigate to the previous image
+  const prevImage = () => {
+    if (placeImages.length > 1) {
+      setCurrentImageIndex((prevIndex) => (prevIndex === 0 ? placeImages.length - 1 : prevIndex - 1))
+    }
+  }
+
+  // Toggle between map and image view
+  const toggleMapView = () => {
+    setShowMap(!showMap)
+
+    if (!showMap) {
+      // Find the index of the map image (usually the last one)
+      const mapIndex = placeImages.findIndex((url) => url.includes("staticmap.openstreetmap.de"))
+      if (mapIndex !== -1) {
+        setCurrentImageIndex(mapIndex)
+      }
+    } else {
+      // Go back to the first image
+      setCurrentImageIndex(0)
+    }
+  }
+
   const rating = getRating()
   const reviewCount = getReviewCount()
   const distance = getDistance()
@@ -158,6 +277,20 @@ export function PlaceInfoPanel({
   const handleSavePlace = () => {
     onSavePlace()
     setIsSaved(true)
+  }
+
+  // Function to handle image loading errors
+  const handleImageError = () => {
+    setImageError(true)
+
+    // If the current image fails, try the next one
+    if (placeImages.length > 1 && currentImageIndex < placeImages.length - 1) {
+      setCurrentImageIndex(currentImageIndex + 1)
+    } else {
+      // If all images fail
+      // Set a fallback image
+      setPlaceImages([getPlaceTypeFallbackImage(place)])
+    }
   }
 
   return (
@@ -174,11 +307,58 @@ export function PlaceInfoPanel({
 
       {/* Place image or placeholder */}
       <div className="h-48 bg-gray-200 relative">
-        <img
-          src={place.tags?.image || `/placeholder.svg?height=200&width=400&query=place+${formatType()}`}
-          alt={place.name || "Place"}
-          className="w-full h-full object-cover"
-        />
+        {isLoadingImage ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+          </div>
+        ) : (
+          <>
+            <img
+              src={placeImages[currentImageIndex] || getPlaceTypeFallbackImage(place)}
+              alt={place.name || "Place"}
+              className="w-full h-full object-cover"
+              onError={handleImageError}
+            />
+
+            {/* Image navigation controls */}
+            {placeImages.length > 1 && (
+              <>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute top-1/2 left-2 transform -translate-y-1/2 bg-white bg-opacity-70 rounded-full"
+                  onClick={prevImage}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute top-1/2 right-2 transform -translate-y-1/2 bg-white bg-opacity-70 rounded-full"
+                  onClick={nextImage}
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+          </>
+        )}
+
+        {/* Image attribution overlay */}
+        <div className="absolute bottom-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1">
+          {imageError ? <span>Image not available</span> : <span>© Image sources</span>}
+        </div>
+
+        {/* Map toggle button */}
+        <Button
+          variant="secondary"
+          size="sm"
+          className="absolute top-2 right-2 bg-white bg-opacity-80"
+          onClick={toggleMapView}
+        >
+          <ImageIcon className="h-4 w-4 mr-1" />
+          {showMap ? "Show Photos" : "Show Map"}
+        </Button>
       </div>
 
       {/* Place title and rating */}
