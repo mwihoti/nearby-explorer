@@ -1,7 +1,6 @@
-import { toast } from "sonner"
+"use client"
 
-export const useToast = () => {
-  return {
-    toast
-  }
-}
+import { toast } from "@/lib/toast-utils"
+
+export { toast }
+export { useToast } from "@/lib/toast-utils"

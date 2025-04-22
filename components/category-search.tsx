@@ -10,6 +10,10 @@ import {
   MapPin,
   ShoppingBag,
   Bus,
+  Church,
+  TreePine,
+  Dumbbell,
+  Plane,
 } from "lucide-react"
 
 interface CategorySearchProps {
@@ -24,9 +28,13 @@ export function CategorySearch({ onCategorySelect, selectedCategory }: CategoryS
     { id: "attractions", name: "Attractions", icon: <Landmark className="h-4 w-4" /> },
     { id: "hospitals", name: "Hospitals", icon: <FirstAid className="h-4 w-4" /> },
     { id: "schools", name: "Schools", icon: <School className="h-4 w-4" /> },
-    { id: "shops", name: "Shops", icon: <ShoppingBag className="h-4 w-4" /> },
-    { id: "cafes", name: "Cafes", icon: <Coffee className="h-4 w-4" /> },
+    { id: "worship", name: "Worship", icon: <Church className="h-4 w-4" /> },
+    { id: "shopping", name: "Shopping", icon: <ShoppingBag className="h-4 w-4" /> },
     { id: "transport", name: "Transport", icon: <Bus className="h-4 w-4" /> },
+    { id: "parks", name: "Parks", icon: <TreePine className="h-4 w-4" /> },
+    { id: "sports", name: "Sports", icon: <Dumbbell className="h-4 w-4" /> },
+    { id: "airports", name: "Airports", icon: <Plane className="h-4 w-4" /> },
+    { id: "cafes", name: "Cafes", icon: <Coffee className="h-4 w-4" /> },
   ]
 
   return (

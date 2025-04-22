@@ -5,20 +5,54 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { MapPin, Clock, Phone, Globe, ChevronLeft, Star, Navigation, Bookmark, Share2, Building } from "lucide-react"
+import {
+  MapPin,
+  Clock,
+  Phone,
+  Globe,
+  ChevronLeft,
+  Star,
+  Navigation,
+  Bookmark,
+  Share2,
+  Building,
+  Route,
+  Loader2,
+} from "lucide-react"
 
 interface PlaceInfoPanelProps {
   place: any
   onClose: () => void
   onGetDirections: () => void
+  onSavePlace: () => void
+  onSharePlace: () => void
+  isSaving: boolean
+  userLocation: [number, number] | null
+  routeInfo: {
+    distance: number
+    duration: number
+    route: any[]
+  } | null
 }
 
-export function PlaceInfoPanel({ place, onClose, onGetDirections }: PlaceInfoPanelProps) {
+export function PlaceInfoPanel({
+  place,
+  onClose,
+  onGetDirections,
+  onSavePlace,
+  onSharePlace,
+  isSaving,
+  userLocation,
+  routeInfo,
+}: PlaceInfoPanelProps) {
   const [isSaved, setIsSaved] = useState(false)
 
   // Format address components
   const formatAddress = () => {
     if (!place) return ""
+
+    // If we have a formatted address, use it
+    if (place.formatted) return place.formatted
 
     const addressParts = []
     if (place.address?.road) addressParts.push(place.address.road)
@@ -26,17 +60,31 @@ export function PlaceInfoPanel({ place, onClose, onGetDirections }: PlaceInfoPan
     if (place.address?.suburb) addressParts.push(place.address.suburb)
     if (place.address?.city || place.address?.town) addressParts.push(place.address?.city || place.address?.town)
 
-    return addressParts.join(", ")
+    // If we still don't have an address, try to use the display_name
+    if (addressParts.length === 0 && place.display_name) {
+      return place.display_name
+    }
+
+    return addressParts.join(", ") || "Address not available"
   }
 
   // Format place type
   const formatType = () => {
     if (!place) return "Place"
 
+    // Check extratags first (Nominatim format)
+    if (place.extratags?.amenity) return formatCategory(place.extratags.amenity)
+    if (place.extratags?.tourism) return formatCategory(place.extratags.tourism)
+    if (place.extratags?.shop) return formatCategory(place.extratags.shop)
+    if (place.extratags?.leisure) return formatCategory(place.extratags.leisure)
+
+    // Then check tags (our API format)
     if (place.tags?.amenity) return formatCategory(place.tags.amenity)
     if (place.tags?.tourism) return formatCategory(place.tags.tourism)
     if (place.tags?.shop) return formatCategory(place.tags.shop)
     if (place.tags?.leisure) return formatCategory(place.tags.leisure)
+
+    // Finally check type
     if (place.type) return formatCategory(place.type)
 
     return "Place"
@@ -51,10 +99,13 @@ export function PlaceInfoPanel({ place, onClose, onGetDirections }: PlaceInfoPan
 
   // Format opening hours
   const formatOpeningHours = () => {
-    if (!place?.tags?.opening_hours) return "Hours not available"
+    // Check both possible locations for opening hours
+    const hours = place?.extratags?.opening_hours || place?.tags?.opening_hours
+
+    if (!hours) return "Hours not available"
 
     // Simple formatting for demo
-    return place.tags.opening_hours.split(";").map((day: string, i: number) => (
+    return hours.split(";").map((day: string, i: number) => (
       <div key={i} className="text-sm">
         {day.trim()}
       </div>
@@ -63,7 +114,7 @@ export function PlaceInfoPanel({ place, onClose, onGetDirections }: PlaceInfoPan
 
   // Format phone number
   const formatPhone = () => {
-    return place?.tags?.phone || "Phone not available"
+    return place?.extratags?.phone || place?.tags?.phone || "Phone not available"
   }
 
   // Generate random rating if not available
@@ -78,10 +129,36 @@ export function PlaceInfoPanel({ place, onClose, onGetDirections }: PlaceInfoPan
     return Math.floor(Math.random() * 200) + 5
   }
 
+  // Calculate distance from user location
+  const getDistance = () => {
+    if (!userLocation || !place || !place.lat || !place.lon) return null
+
+    // Calculate distance using Haversine formula
+    const R = 6371 // Radius of the earth in km
+    const dLat = deg2rad(userLocation[0] - place.lat)
+    const dLon = deg2rad(userLocation[1] - place.lon)
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(place.lat)) * Math.cos(deg2rad(userLocation[0])) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    const d = R * c // Distance in km
+    return Math.round(d * 10) / 10 // Round to 1 decimal place
+  }
+
+  function deg2rad(deg: number): number {
+    return deg * (Math.PI / 180)
+  }
+
   const rating = getRating()
   const reviewCount = getReviewCount()
+  const distance = getDistance()
 
   if (!place) return null
+
+  const handleSavePlace = () => {
+    onSavePlace()
+    setIsSaved(true)
+  }
 
   return (
     <Card className="w-full overflow-hidden shadow-lg">
@@ -126,6 +203,28 @@ export function PlaceInfoPanel({ place, onClose, onGetDirections }: PlaceInfoPan
             {formatType()}
           </Badge>
         </div>
+
+        {/* Distance from user */}
+        {distance !== null && (
+          <div className="mt-2 text-sm text-gray-600 flex items-center">
+            <Navigation className="h-4 w-4 mr-1 text-gray-500" />
+            <span>{distance} km from your location</span>
+          </div>
+        )}
+
+        {/* Route information */}
+        {routeInfo && (
+          <div className="mt-2 bg-blue-50 p-2 rounded border border-blue-100">
+            <div className="flex items-center text-blue-800">
+              <Route className="h-4 w-4 mr-1" />
+              <span className="text-sm font-medium">Route calculated:</span>
+            </div>
+            <div className="text-sm text-blue-700 mt-1">
+              <p>Distance: {routeInfo.distance.toFixed(2)} km</p>
+              <p>Estimated time: {routeInfo.duration.toFixed(0)} min</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Action buttons */}
@@ -138,12 +237,22 @@ export function PlaceInfoPanel({ place, onClose, onGetDirections }: PlaceInfoPan
           variant="ghost"
           size="sm"
           className="flex flex-col items-center h-auto py-2"
-          onClick={() => setIsSaved(!isSaved)}
+          onClick={handleSavePlace}
+          disabled={isSaved || isSaving}
         >
-          <Bookmark className={`h-5 w-5 mb-1 ${isSaved ? "fill-current" : ""}`} />
-          <span className="text-xs">{isSaved ? "Saved" : "Save"}</span>
+          {isSaving ? (
+            <>
+              <Loader2 className="h-5 w-5 mb-1 animate-spin" />
+              <span className="text-xs">Saving...</span>
+            </>
+          ) : (
+            <>
+              <Bookmark className={`h-5 w-5 mb-1 ${isSaved ? "fill-current" : ""}`} />
+              <span className="text-xs">{isSaved ? "Saved" : "Save"}</span>
+            </>
+          )}
         </Button>
-        <Button variant="ghost" size="sm" className="flex flex-col items-center h-auto py-2">
+        <Button variant="ghost" size="sm" className="flex flex-col items-center h-auto py-2" onClick={onSharePlace}>
           <Share2 className="h-5 w-5 mb-1" />
           <span className="text-xs">Share</span>
         </Button>

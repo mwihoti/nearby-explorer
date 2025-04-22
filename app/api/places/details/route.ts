@@ -12,6 +12,7 @@ export async function GET(request: Request) {
 
     const placeDetails = await getPlaceDetails(placeId)
 
+    // Always return success even if we're using fallback data
     return NextResponse.json({
       success: true,
       data: placeDetails,

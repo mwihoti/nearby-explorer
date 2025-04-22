@@ -6,7 +6,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const lat = Number.parseFloat(searchParams.get("lat") || "0")
     const lng = Number.parseFloat(searchParams.get("lng") || "0")
-    const radius = Number.parseInt(searchParams.get("radius") || "1000")
+    const radius = Number.parseInt(searchParams.get("radius") || "5000") // Default to 5km
     const category = searchParams.get("category") || undefined
 
     if (!lat || !lng) {
@@ -14,6 +14,11 @@ export async function GET(request: Request) {
     }
 
     const places = await searchNearbyPlaces(lat, lng, radius, category)
+
+    // Store places in global cache for fallback
+    if (typeof global !== "undefined" && global.placesCache) {
+      global.placesCache = places
+    }
 
     return NextResponse.json({
       success: true,
