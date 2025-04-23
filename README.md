@@ -62,6 +62,35 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 npm run build
 npm start
 ```
+## Running with Docker
+
+NearbyExplorer can be easily run using Docker, which ensures a consistent environment across different machines. Here's how to get started:
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) installed on your machine
+- [Docker Compose](https://docs.docker.com/compose/install/) (included with Docker Desktop for Windows/Mac)
+
+### Quick Start
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/yourusername/nearby-explorer.git
+   cd nearby-explorer/explorer
+   ```
+2. **Environment Setup:**
+Create a .env file in the root directory with your environment variables:
+
+3. **Build and Start the Containers:**
+
+```docker-compose up -d```
+
+4. **Access the application**
+```docker-compose up -d```
+
+5. **Stopping application**
+   ```docker-compose down```
+
 
 ## How It Works
 
