@@ -31,9 +31,15 @@ Nearby Explorer is a web application that helps users discover and share interes
 Create a `.env.local` file in the root directory with the following variables:
 
 ```
-MONGODB_URI=your_mongodb_connection_string
+
 OPENCAGE_API_KEY=your_opencage_api_key
-NEXT_PUBLIC_APP_URL=http://localhost:3000 
+MONGODB_URI=${MONGODB_URI}
+ - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+- NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+- GITHUB_ID=${GITHUB_ID}
+- GITHUB_SECRET=${GITHUB_SECRET}
+- GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+- GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
 ```
 
 ### Installation Steps
