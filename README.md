@@ -83,13 +83,19 @@ Create a .env file in the root directory with your environment variables:
 
 3. **Build and Start the Containers:**
 
-```docker-compose up -d```
+```bash
+docker-compose up -d
+```
 
 4. **Access the application**
-```docker-compose up -d```
+```bash
+docker-compose up -d
+```
 
 5. **Stopping application**
-   ```docker-compose down```
+   ```bash
+   docker-compose down
+   ```
 
 
 ## How It Works
